@@ -8,3 +8,7 @@ edition = "2018"
 
 [dependencies]
 actix-web = "2.0"
+base64 = "0.11"
+sha-1 = "0.8"
+futures = "0.3"
+
