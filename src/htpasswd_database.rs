@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fs::File,
     path::Path,
+    convert::TryFrom,
     io::{
         BufRead,
         BufReader
@@ -18,11 +19,40 @@ use crate::{
     error::Error
 };
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct HtpasswdDatabase {
     registered_users: HashMap<String, Vec<u8>>,
 }
 impl HtpasswdDatabase {
-    pub fn from_file(htpasswd_file_path: &Path) -> Result<HtpasswdDatabase, Error> {
+    pub fn new() -> HtpasswdDatabase {
+        HtpasswdDatabase { registered_users: HashMap::new() }
+    }
+
+    pub fn add<S>(user: S, password: &[u8]) -> Result<(), Error>
+        where S: Into<String> + Sized {
+
+    }
+
+    pub(crate) fn is_valid(&self, auth_data: &AuthData) -> bool {
+        if !self.registered_users.contains_key(&auth_data.user) {
+            return false;
+        }
+
+        // At the moment, only SHA-1 hashed passwords are supported in the
+        // Htpasswd file. Thus, SHA-1 of the supplied password is computed here.
+        let mut sha1_hasher = Sha1::new();
+        sha1_hasher.input(&auth_data.password);
+
+        let sha1_password = sha1_hasher.result().to_vec();
+
+        &sha1_password == self.registered_users.get(&auth_data.user).unwrap()
+    }
+}
+
+impl TryFrom<&Path> for HtpasswdDatabase {
+    type Error = Error;
+
+    fn try_from(htpasswd_file_path: &Path) -> Result<Self, Self::Error> {
         let path_string = htpasswd_file_path.to_string_lossy().to_string();
 
         let file = File::open(htpasswd_file_path)
@@ -33,6 +63,8 @@ impl HtpasswdDatabase {
 
         let reader = BufReader::new(file);
 
+        // Create the internal hashmap which will be used to store the
+        // recognized credentials
         let mut registered_users = HashMap::new();
 
         for (i, line_res) in reader.lines().enumerate() {
@@ -48,6 +80,10 @@ impl HtpasswdDatabase {
                 continue;
             }
 
+            // Cut the htpasswd line on the ":{SHA}" string, which splits
+            // the username from the base64 representation of the password sha1.
+            // At the moment, only SHA-1 hashed passwords are supported in the
+            // Htpasswd file.
             let parts: Vec<&str> = line.split(":{SHA}").collect();
             if parts.len() != 2 {
                 return Err(Error::MalformedHtpasswdLine {
@@ -66,10 +102,9 @@ impl HtpasswdDatabase {
                         line: i,
                     })?;
 
+            // Check for duplicated credentials in the Htpasswd file
             if registered_users.contains_key(user) {
                 return Err(Error::DuplicateUser {
-                    path_string: path_string.clone(),
-                    line: i,
                     user: user.to_owned(),
                 });
             }
@@ -78,18 +113,5 @@ impl HtpasswdDatabase {
         }
 
         Ok(HtpasswdDatabase { registered_users })
-    }
-
-    pub(crate) fn is_valid(&self, auth_data: &AuthData) -> bool {
-        if !self.registered_users.contains_key(&auth_data.user) {
-            return false;
-        }
-
-        let mut sha1_hasher = Sha1::new();
-        sha1_hasher.input(&auth_data.password);
-
-        let sha1_password = sha1_hasher.result().to_vec();
-
-        &sha1_password == self.registered_users.get(&auth_data.user).unwrap()
     }
 }

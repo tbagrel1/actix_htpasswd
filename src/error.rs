@@ -37,8 +37,6 @@ pub enum Error {
         line: usize,
     },
     DuplicateUser {
-        path_string: String,
-        line: usize,
         user: String,
     },
 }
@@ -106,8 +104,8 @@ impl Display for Error {
                 f, "Invalid base64 string for password in Htpasswd file \"{}\" at line {}",
                 path_string, line
             ),
-            DuplicateUser { path_string, line, user } => write!(
-                f, "Duplicate user \"{}\" in Htpasswd file \"{}\" at line {}",
+            DuplicateUser { user } => write!(
+                f, "Duplicate user \"{}\"",
                 user, path_string, line
             ),
         }
@@ -119,3 +117,5 @@ impl Debug for Error {
         write!(f, "{}({})", self.kind(), self)
     }
 }
+
+impl std::error::Error for Error {}

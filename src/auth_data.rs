@@ -24,6 +24,8 @@ impl AuthData {
             .or(Err(Error::CannotConvertHeaderToString))?
             .splitn(2, ' ');
 
+        // Check the authentication scheme. Only Basic authentication is
+        // supported.
         match parts.next() {
             Some(scheme) => {
                 if scheme != "Basic" {
