@@ -1,7 +1,15 @@
-use actix_web::{http::header::AUTHORIZATION, HttpRequest};
+use actix_web::{
+    HttpRequest,
+    http::header::AUTHORIZATION,
+};
+use serde::{
+    Serialize,
+    Deserialize
+};
 
 use crate::error::Error;
 
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub(crate) struct AuthData {
     pub(crate) user: String,
     pub(crate) password: String,

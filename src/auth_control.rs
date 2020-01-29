@@ -1,4 +1,10 @@
-use std::marker::PhantomData;
+use std::{
+    fmt::{
+        Display,
+        Formatter,
+    },
+    marker::PhantomData
+};
 
 use actix_web::{
     FromRequest,
@@ -15,6 +21,10 @@ use futures::future::{
     ok,
     Ready
 };
+use serde::{
+    Serialize,
+    Deserialize
+};
 
 use crate::{
     auth_data::AuthData,
@@ -22,15 +32,27 @@ use crate::{
     user_control_policy::UserControlPolicy,
 };
 
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum AuthResult {
     Anonymous,
     LoggedUser { user: String },
 }
 
+impl Display for AuthResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match self {
+            AuthResult::Anonymous => write!(f, "not authenticated (anonymous)"),
+            AuthResult::LoggedUser { user } => write!(f, "authenticated as \"{}\"", user)
+        }
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct AuthControl<U: UserControlPolicy> {
     _phantom_data: PhantomData<U>, // keep UserControlPolicy type
     pub auth_result: AuthResult,
 }
+
 impl<U: UserControlPolicy> FromRequest for AuthControl<U> {
     type Error = HttpError;
     type Future = Ready<Result<Self, HttpError>>;
@@ -74,5 +96,16 @@ impl<U: UserControlPolicy> FromRequest for AuthControl<U> {
                 "Insufficient privileges to access this resource"
             )))
         }
+    }
+}
+
+impl<U: UserControlPolicy> Display for AuthControl<U> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(
+            f, "AuthControl: {} policy caught a user {}: {}",
+            U::display(),
+            self.auth_result,
+            if U::allows(&self.auth_result) { "access granted" } else { "access forbidden" }
+        )
     }
 }

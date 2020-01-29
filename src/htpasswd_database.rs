@@ -7,11 +7,19 @@ use std::{
         BufRead,
         BufReader
     },
+    fmt::{
+        Display,
+        Formatter,
+    }
 };
 
 use sha1::{
     Digest,
     Sha1
+};
+use serde::{
+    Serialize,
+    Deserialize
 };
 
 use crate::{
@@ -19,7 +27,7 @@ use crate::{
     error::Error
 };
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct HtpasswdDatabase {
     registered_users: HashMap<String, Vec<u8>>,
 }
@@ -28,12 +36,15 @@ impl HtpasswdDatabase {
         HtpasswdDatabase { registered_users: HashMap::new() }
     }
 
-    pub fn add(&mut self, user: &str, sha1_password: Vec<u8>) -> Result<(), Error> {
+    pub fn add(&mut self, user: &str, password: &str) -> Result<(), Error> {
         if self.registered_users.contains_key(user) {
             return Err(Error::DuplicateUser {
                 user: user.to_owned(),
             });
         }
+        let mut sha1_hasher = Sha1::new();
+        sha1_hasher.input(password);
+        let sha1_password = sha1_hasher.result().to_vec();
 
         self.registered_users.insert(user.to_owned(), sha1_password);
         Ok(())
@@ -48,7 +59,6 @@ impl HtpasswdDatabase {
         // Htpasswd file. Thus, SHA-1 of the supplied password is computed here.
         let mut sha1_hasher = Sha1::new();
         sha1_hasher.input(&auth_data.password);
-
         let sha1_password = sha1_hasher.result().to_vec();
 
         &sha1_password == self.registered_users.get(&auth_data.user).unwrap()
@@ -119,5 +129,15 @@ impl TryFrom<&Path> for HtpasswdDatabase {
         }
 
         Ok(HtpasswdDatabase { registered_users })
+    }
+}
+
+impl Display for HtpasswdDatabase {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "--- Htpasswd Database ---")?;
+        for (user, password) in self.registered_users.iter() {
+            write!(f, "{}:{{SHA}}{}", user, base64::encode(password))?;
+        }
+        Ok(())
     }
 }
