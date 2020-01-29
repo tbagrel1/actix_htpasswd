@@ -106,7 +106,7 @@ impl Display for Error {
             ),
             DuplicateUser { user } => write!(
                 f, "Duplicate user \"{}\"",
-                user, path_string, line
+                user
             ),
         }
     }

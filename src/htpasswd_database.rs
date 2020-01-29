@@ -28,9 +28,15 @@ impl HtpasswdDatabase {
         HtpasswdDatabase { registered_users: HashMap::new() }
     }
 
-    pub fn add<S>(user: S, password: &[u8]) -> Result<(), Error>
-        where S: Into<String> + Sized {
+    pub fn add(&mut self, user: &str, sha1_password: Vec<u8>) -> Result<(), Error> {
+        if self.registered_users.contains_key(user) {
+            return Err(Error::DuplicateUser {
+                user: user.to_owned(),
+            });
+        }
 
+        self.registered_users.insert(user.to_owned(), sha1_password);
+        Ok(())
     }
 
     pub(crate) fn is_valid(&self, auth_data: &AuthData) -> bool {
