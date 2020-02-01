@@ -10,6 +10,7 @@ use actix_web::{
     FromRequest,
     HttpRequest,
     dev::Payload,
+    web::Data,
     error::{
         Error as HttpError,
         ErrorForbidden,
@@ -59,7 +60,7 @@ impl<U: UserControlPolicy> FromRequest for AuthControl<U> {
     type Config = ();
 
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let htpasswd_database = req.app_data::<HtpasswdDatabase>()
+        let htpasswd_database = req.app_data::<Data<HtpasswdDatabase>>()
             .expect("No HtpasswdDatabase added to the actix app. Cannot check credentials");
 
         // Extract authentication data from the request, and match it against
